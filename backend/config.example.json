@@ -1,0 +1,8 @@
+{
+  "broker": "broker.hivemq.com",
+  "porta": 1883,
+  "topic_prefix": "ips/troque-por-algo-unico",
+  "janela": 3,
+  "arquivo_calibracao": "calibracao.json",
+  "arquivo_coordenadas": "coordenadas.json"
+}

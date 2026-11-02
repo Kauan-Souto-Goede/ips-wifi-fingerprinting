@@ -1,0 +1,12 @@
+# Segredos e dados locais (não versionar)
+firmware/include/secrets.h
+backend/config.json
+backend/calibracao.json
+backend/coordenadas.json
+backend/dados_campo/
+
+# Python / PlatformIO
+__pycache__/
+.pytest_cache/
+.pio/
+.vscode/

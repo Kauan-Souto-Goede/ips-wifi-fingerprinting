@@ -1,0 +1,7 @@
+{
+  "assinaturas": {
+    "sala":   { "A1B2C3D4E5F6": -48, "001122334455": -71, "AABBCCDDEEFF": -80 },
+    "quarto": { "A1B2C3D4E5F6": -66, "001122334455": -55, "AABBCCDDEEFF": -78 },
+    "cozinha": { "A1B2C3D4E5F6": -58, "001122334455": -74 }
+  }
+}

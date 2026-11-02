@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Radar Indoor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+
+  <style>
+    :root {
+      --bg:       #080c10;
+      --surface:  #0d1520;
+      --border:   #1a2d45;
+      --accent:   #00d4ff;
+      --accent2:  #0066ff;
+      --danger:   #ff3c5a;
+      --ok:       #00e5a0;
+      --warn:     #ffb800;
+      --text:     #c8dff0;
+      --text-dim: #4a6a88;
+      --mono:     'Share Tech Mono', monospace;
+      --sans:     'Exo 2', sans-serif;
+      --glow:     0 0 20px rgba(0,212,255,.35);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,102,255,.18), transparent),
+        repeating-linear-gradient(0deg,  transparent, transparent 39px, rgba(0,212,255,.04) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,212,255,.04) 40px);
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%; max-width: 900px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px; padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap; gap: 12px;
+    }
+
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { width: 38px; height: 38px; flex-shrink: 0; }
+    .logo-icon svg { width: 100%; height: 100%; }
+    .logo-text h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #fff; }
+    .logo-text p  { font-family: var(--mono); font-size: .65rem; color: var(--text-dim); letter-spacing: .08em; }
+
+    /* Upload button inline no header */
+    .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    #upload-label {
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--mono); font-size: .68rem; letter-spacing: .06em;
+      padding: 6px 14px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text-dim); cursor: pointer;
+      transition: border-color .3s, color .3s;
+    }
+    #upload-label:hover { border-color: var(--accent); color: var(--accent); }
+    #upload-label svg { width: 13px; height: 13px; flex-shrink: 0; }
+    #img-upload { display: none; }
+
+    #conn-pill {
+      display: flex; align-items: center; gap: 8px;
+      font-family: var(--mono); font-size: .72rem;
+      padding: 6px 14px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--surface);
+      letter-spacing: .06em; transition: border-color .4s, color .4s;
+    }
+    #conn-pill .led {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--warn); box-shadow: 0 0 6px var(--warn);
+      animation: blink 1.2s ease-in-out infinite;
+    }
+    #conn-pill.online  { border-color: var(--ok);    color: var(--ok); }
+    #conn-pill.online  .led { background: var(--ok); box-shadow: 0 0 8px var(--ok); animation: none; }
+    #conn-pill.offline { border-color: var(--danger); color: var(--danger); }
+    #conn-pill.offline .led { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+    /* ── Layout ── */
+    .main {
+      width: 100%; max-width: 900px;
+      display: grid; grid-template-columns: 1fr 260px;
+      gap: 20px; align-items: start;
+    }
+
+    /* ── Mapa ── */
+    .map-panel {
+      position: relative;
+      border: 1px solid var(--border); border-radius: 14px;
+      overflow: hidden; background: var(--surface);
+      box-shadow: var(--glow), inset 0 0 60px rgba(0,0,0,.4);
+    }
+    .map-panel::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(0,212,255,.04) 0%, transparent 60%);
+      pointer-events: none; z-index: 1;
+    }
+
+    /* ★ Wrapper mantém proporção real da imagem sem JS bloqueante */
+    #map-inner {
+      position: relative;
+      width: 100%;
+      padding-top: 112%; /* sobrescrito por JS após load */
+    }
+
+    #floorplan {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: fill;   /* preenche exatamente → coordenadas % sempre corretas */
+      opacity: .88;
+      display: block;
+      transition: opacity .4s;
+    }
+
+    /* Dot */
+    #dot {
+      position: absolute;
+      width: 20px; height: 20px;
+      transform: translate(-50%, -50%);
+      top: 50%; left: 50%;
+      z-index: 10;
+      opacity: 0;
+      transition: top 1s cubic-bezier(.4,0,.2,1), left 1s cubic-bezier(.4,0,.2,1), opacity .4s;
+    }
+    #dot.visible { opacity: 1; }
+    #dot::before {
+      content: ''; position: absolute; inset: 0;
+      border-radius: 50%; background: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,212,255,.3), 0 0 20px var(--accent);
+    }
+    #dot::after {
+      content: ''; position: absolute; inset: -8px;
+      border-radius: 50%; border: 1.5px solid var(--accent);
+      opacity: .5; animation: ripple 2s ease-out infinite;
+    }
+    @keyframes ripple {
+      0%   { inset: -4px;  opacity: .7; }
+      100% { inset: -18px; opacity: 0; }
+    }
+
+    #dot-label {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(14px, -50%);
+      white-space: nowrap; font-family: var(--mono); font-size: .65rem;
+      color: var(--accent); background: rgba(8,12,16,.85);
+      padding: 3px 8px; border-radius: 4px;
+      border: 1px solid rgba(0,212,255,.3);
+      pointer-events: none;
+    }
+
+    .map-badge {
+      position: absolute; bottom: 12px; left: 12px;
+      font-family: var(--mono); font-size: .6rem;
+      color: var(--text-dim); letter-spacing: .06em; z-index: 5;
+    }
+
+    /* Scan rings */
+    #scan-ring {
+      position: absolute; inset: 0;
+      pointer-events: none; z-index: 3;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ring {
+      position: absolute; border: 1px solid rgba(0,212,255,.15);
+      border-radius: 50%; animation: expand 3s ease-out infinite;
+    }
+    .ring:nth-child(2) { animation-delay: 1s; }
+    .ring:nth-child(3) { animation-delay: 2s; }
+    @keyframes expand {
+      0%   { width: 40px;  height: 40px;  opacity: .6; }
+      100% { width: 300px; height: 300px; opacity: 0; }
+    }
+
+    /* ── Side ── */
+    .side { display: flex; flex-direction: column; gap: 16px; }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px;
+    }
+    .card-title {
+      font-family: var(--mono); font-size: .62rem;
+      letter-spacing: .14em; text-transform: uppercase;
+      color: var(--text-dim); margin-bottom: 14px;
+    }
+
+    #location-name {
+      font-size: 1.3rem; font-weight: 700; color: #fff;
+      margin-bottom: 4px; min-height: 1.6rem; transition: opacity .3s;
+    }
+    #location-sub { font-family: var(--mono); font-size: .68rem; color: var(--text-dim); }
+
+    .coords-row { display: flex; gap: 10px; margin-top: 14px; }
+    .coord-box {
+      flex: 1; background: rgba(0,0,0,.3);
+      border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    }
+    .coord-box .label { font-family: var(--mono); font-size: .55rem; color: var(--text-dim); letter-spacing: .1em; }
+    .coord-box .value { font-family: var(--mono); font-size: 1.05rem; color: var(--accent); font-weight: 600; }
+
+    .conf-wrap { margin-top: 14px; }
+    .conf-label-row {
+      display: flex; justify-content: space-between;
+      font-family: var(--mono); font-size: .6rem; color: var(--text-dim); margin-bottom: 6px;
+    }
+    .conf-track { height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; overflow: hidden; }
+    .conf-fill {
+      height: 100%; width: 0%; border-radius: 2px;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      transition: width .8s cubic-bezier(.4,0,.2,1);
+    }
+
+    .stats-row { display: flex; gap: 10px; }
+    .stat-box {
+      flex: 1; background: rgba(0,0,0,.3);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px; text-align: center;
+    }
+    .stat-box .s-label { font-family: var(--mono); font-size: .55rem; color: var(--text-dim); letter-spacing: .08em; display: block; margin-bottom: 4px; }
+    .stat-box .s-value { font-family: var(--mono); font-size: 1.1rem; color: #fff; font-weight: 600; }
+
+    #history-list {
+      list-style: none; display: flex; flex-direction: column;
+      gap: 6px; max-height: 180px; overflow-y: auto;
+    }
+    #history-list::-webkit-scrollbar { width: 3px; }
+    #history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    #history-list li {
+      display: flex; align-items: center; justify-content: space-between;
+      font-family: var(--mono); font-size: .65rem;
+      padding: 6px 10px; border-radius: 6px;
+      background: rgba(0,0,0,.25); border: 1px solid transparent; transition: border-color .3s;
+    }
+    #history-list li:first-child { border-color: rgba(0,212,255,.25); color: #fff; }
+    #history-list li .ts { color: var(--text-dim); font-size: .58rem; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 30px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface); border: 1px solid var(--border);
+      border-left: 3px solid var(--accent); color: var(--text);
+      font-family: var(--mono); font-size: .72rem;
+      padding: 10px 20px; border-radius: 8px;
+      opacity: 0; pointer-events: none;
+      transition: opacity .3s, transform .3s; z-index: 100; white-space: nowrap;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 680px) {
+      .main { grid-template-columns: 1fr; }
+      .side { flex-direction: row; flex-wrap: wrap; }
+      .side .card { flex: 1 1 200px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="19" cy="19" r="18" stroke="#1a2d45" stroke-width="1.5"/>
+          <circle cx="19" cy="19" r="12" stroke="#00d4ff" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>
+          <circle cx="19" cy="19" r="5"  fill="#00d4ff" opacity=".9"/>
+          <circle cx="19" cy="19" r="2"  fill="#fff"/>
+          <line x1="1"  y1="19" x2="8"  y2="19" stroke="#00d4ff" stroke-width="1" opacity=".4"/>
+          <line x1="30" y1="19" x2="37" y2="19" stroke="#00d4ff" stroke-width="1" opacity=".4"/>
+          <line x1="19" y1="1"  x2="19" y2="8"  stroke="#00d4ff" stroke-width="1" opacity=".4"/>
+          <line x1="19" y1="30" x2="19" y2="37" stroke="#00d4ff" stroke-width="1" opacity=".4"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <h1>Radar Indoor</h1>
+        <p>Wi-Fi Fingerprinting · Posicionamento</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Upload da planta — sem recarregar a página -->
+      <label id="upload-label" for="img-upload" title="Trocar planta baixa">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Trocar Planta
+      </label>
+      <input type="file" id="img-upload" accept="image/*" />
+
+      <div id="conn-pill">
+        <span class="led"></span>
+        <span id="conn-text">Conectando...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Mapa -->
+    <div class="map-panel">
+      <!-- ★ map-inner mantém aspect-ratio correto da imagem atual -->
+      <div id="map-inner">
+        <img id="floorplan" src="Image/Planta.png" alt="Planta Baixa" />
+
+        <!-- Ondas de scan -->
+        <div id="scan-ring">
+          <div class="ring"></div>
+          <div class="ring"></div>
+          <div class="ring"></div>
+        </div>
+
+        <!-- Marcador -->
+        <div id="dot">
+          <div id="dot-label">—</div>
+        </div>
+
+        <div class="map-badge">PLANTA · POSICIONAMENTO Wi-Fi</div>
+      </div>
+    </div>
+
+    <!-- Lateral -->
+    <div class="side">
+
+      <div class="card">
+        <div class="card-title">▸ Localização Atual</div>
+        <div id="location-name">—</div>
+        <div id="location-sub">Aguardando sinal...</div>
+        <div class="coords-row">
+          <div class="coord-box">
+            <div class="label">COORD X</div>
+            <div class="value" id="coord-x">—</div>
+          </div>
+          <div class="coord-box">
+            <div class="label">COORD Y</div>
+            <div class="value" id="coord-y">—</div>
+          </div>
+        </div>
+        <div class="conf-wrap">
+          <div class="conf-label-row">
+            <span>CONFIANÇA</span>
+            <span id="conf-value">—</span>
+          </div>
+          <div class="conf-track">
+            <div class="conf-fill" id="conf-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">▸ Estatísticas</div>
+        <div class="stats-row">
+          <div class="stat-box">
+            <span class="s-label">PACOTES</span>
+            <span class="s-value" id="stat-packets">0</span>
+          </div>
+          <div class="stat-box">
+            <span class="s-label">UPTIME</span>
+            <span class="s-value" id="stat-uptime">0s</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">▸ Histórico</div>
+        <ul id="history-list">
+          <li><span>—</span><span class="ts">aguardando</span></li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    // Prefixo dos tópicos MQTT: o mesmo de TOPIC_PREFIX no firmware e topic_prefix
+    // no backend. Passe na URL:  indexv2.html?t=ips/meu-prefixo-unico
+    const PREFIXO = new URLSearchParams(location.search).get("t") || "ips/demo";
+    const CFG = {
+      broker:      "broker.hivemq.com",
+      port:        8884,
+      topic:       PREFIXO + "/localizacao_final",
+      retryMs:     4000,
+    };
+
+    const state = { packets: 0, uptimeSec: 0, history: [], maxHistory: 8 };
+
+    const $ = id => document.getElementById(id);
+    const el = {
+      pill:      $("conn-pill"), pillText: $("conn-text"),
+      dot:       $("dot"),       dotLabel: $("dot-label"),
+      mapInner:  $("map-inner"), floorplan: $("floorplan"),
+      locName:   $("location-name"), locSub: $("location-sub"),
+      coordX:    $("coord-x"),   coordY:   $("coord-y"),
+      confFill:  $("conf-fill"), confValue: $("conf-value"),
+      packets:   $("stat-packets"), uptime: $("stat-uptime"),
+      history:   $("history-list"), toast: $("toast"),
+    };
+
+    // ── Ajusta proporção do mapa ao aspect-ratio real da imagem ──────────
+    function ajustarAspecto() {
+      const r = el.floorplan.naturalHeight / el.floorplan.naturalWidth;
+      if (r > 0) el.mapInner.style.paddingTop = (r * 100).toFixed(2) + "%";
+    }
+    el.floorplan.addEventListener("load", ajustarAspecto);
+    if (el.floorplan.complete) ajustarAspecto();
+
+    // ── Upload de nova planta sem recarregar ──────────────────────────────
+    $("img-upload").addEventListener("change", function () {
+      const file = this.files[0];
+      if (!file) return;
+      // Libera URL anterior se houver
+      if (el.floorplan._blobUrl) URL.revokeObjectURL(el.floorplan._blobUrl);
+      const url = URL.createObjectURL(file);
+      el.floorplan._blobUrl = url;
+      el.floorplan.style.opacity = "0";
+      el.floorplan.src = url;
+      el.floorplan.addEventListener("load", () => {
+        el.floorplan.style.opacity = ".88";
+        showToast("Planta carregada: " + file.name);
+      }, { once: true });
+      // Reseta posição do dot pois as coordenadas do novo mapa podem diferir
+      el.dot.classList.remove("visible");
+    });
+
+    // ── Toast ─────────────────────────────────────────────────────────────
+    let toastTimer;
+    function showToast(msg) {
+      el.toast.textContent = msg;
+      el.toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.toast.classList.remove("show"), 3000);
+    }
+
+    // ── Uptime ────────────────────────────────────────────────────────────
+    setInterval(() => {
+      state.uptimeSec++;
+      const h = Math.floor(state.uptimeSec / 3600);
+      const m = Math.floor((state.uptimeSec % 3600) / 60);
+      const s = state.uptimeSec % 60;
+      el.uptime.textContent = h > 0
+        ? `${h}h${String(m).padStart(2,"0")}m`
+        : m > 0 ? `${m}m${String(s).padStart(2,"0")}s` : `${s}s`;
+    }, 1000);
+
+    // ── Atualiza UI ───────────────────────────────────────────────────────
+    function atualizarPosicao(d) {
+      const { local, x, y, confianca, distancia_db } = d;
+      state.packets++;
+
+      el.dot.style.left = x + "%";
+      el.dot.style.top  = y + "%";
+      el.dot.classList.add("visible");
+      el.dotLabel.textContent = local;
+
+      el.locName.textContent = local;
+      el.coordX.textContent  = x;
+      el.coordY.textContent  = y;
+      el.packets.textContent = state.packets;
+
+      if (confianca !== undefined) {
+        // confianca vem do motor em [0, 1): margem entre o 1º e o 2º ponto mais parecidos
+        const pct = Math.max(0, Math.min(100, confianca * 100));
+        el.confFill.style.width      = pct.toFixed(1) + "%";
+        el.confValue.textContent     = pct.toFixed(0) + "%";
+        el.locSub.textContent        = distancia_db !== undefined
+          ? `distância da assinatura: ${distancia_db.toFixed(1)} dB` : `x=${x}  y=${y}`;
+        const cor = pct > 65 ? "var(--ok)" : pct > 35 ? "var(--warn)" : "var(--danger)";
+        el.confFill.style.background = `linear-gradient(90deg, var(--accent2), ${cor})`;
+      } else {
+        el.locSub.textContent = `x=${x}  y=${y}`;
+      }
+
+      const ultimo = state.history[0];
+      if (!ultimo || ultimo.local !== local) {
+        const agora = new Date();
+        const ts = [agora.getHours(), agora.getMinutes(), agora.getSeconds()]
+          .map(n => String(n).padStart(2,"0")).join(":");
+        state.history.unshift({ local, ts });
+        if (state.history.length > state.maxHistory) state.history.pop();
+        el.history.innerHTML = state.history.map(item =>
+          `<li><span>${item.local}</span><span class="ts">${item.ts}</span></li>`
+        ).join("");
+      }
+    }
+
+    // ── MQTT ─────────────────────────────────────────────────────────────
+    const clientId = "web_" + Math.random().toString(36).slice(2, 10);
+    const client   = new Paho.MQTT.Client(CFG.broker, CFG.port, "/mqtt", clientId);
+
+    function setStatus(s) {
+      el.pill.className = s;
+      el.pillText.textContent = { online: "Online", offline: "Offline", connecting: "Conectando..." }[s] ?? s;
+    }
+
+    client.onConnectionLost = () => {
+      setStatus("offline");
+      showToast("Conexão perdida — reconectando...");
+      setTimeout(conectar, CFG.retryMs);
+    };
+
+    client.onMessageArrived = msg => {
+      try {
+        const d = JSON.parse(msg.payloadString);
+        if (d.local && d.x !== undefined && d.y !== undefined) atualizarPosicao(d);
+      } catch (e) { console.error("[MQTT] Payload inválido:", e); }
+    };
+
+    function conectar() {
+      setStatus("connecting");
+      client.connect({
+        useSSL: true, timeout: 10,
+        onSuccess: () => {
+          setStatus("online");
+          client.subscribe(CFG.topic);
+          showToast("Conectado ao broker HiveMQ");
+        },
+        onFailure: err => {
+          setStatus("offline");
+          showToast(`Falha (${err.errorMessage})`);
+          setTimeout(conectar, CFG.retryMs);
+        },
+      });
+    }
+
+    conectar();
+  </script>
+</body>
+</html>

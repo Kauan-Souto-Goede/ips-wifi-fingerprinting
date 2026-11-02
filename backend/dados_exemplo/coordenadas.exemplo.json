@@ -1,0 +1,5 @@
+{
+  "sala":    { "x": 25, "y": 30, "comodo": "sala" },
+  "quarto":  { "x": 75, "y": 30, "comodo": "quarto" },
+  "cozinha": { "x": 50, "y": 75, "comodo": "cozinha" }
+}

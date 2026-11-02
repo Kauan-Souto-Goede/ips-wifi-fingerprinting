@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Radar Indoor — Versões</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #080c10; --surface: #0d1520; --border: #1a2d45;
+      --accent: #00d4ff; --text: #c8dff0; --dim: #4a6a88;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Exo 2', sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 40px;
+      background-image:
+        repeating-linear-gradient(0deg,  transparent, transparent 39px, rgba(0,212,255,.04) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,212,255,.04) 40px);
+    }
+    h1 { font-size: 1rem; letter-spacing: .2em; color: var(--dim); font-family: 'Share Tech Mono', monospace; }
+    .cards { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+    .card {
+      width: 240px; padding: 28px 24px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; text-align: center; text-decoration: none;
+      color: var(--text); transition: border-color .3s, transform .3s, box-shadow .3s;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-4px);
+      box-shadow: 0 0 24px rgba(0,212,255,.2);
+    }
+    .card .version {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: .65rem; letter-spacing: .15em; color: var(--accent);
+    }
+    .card .title { font-size: 1.1rem; font-weight: 700; color: #fff; }
+    .card .desc  { font-size: .78rem; color: var(--dim); line-height: 1.5; }
+    .card .badge {
+      align-self: center;
+      font-family: 'Share Tech Mono', monospace; font-size: .6rem;
+      padding: 4px 12px; border-radius: 999px; border: 1px solid;
+    }
+    .badge-old  { border-color: var(--dim);    color: var(--dim); }
+    .badge-new  { border-color: var(--accent); color: var(--accent);
+                  background: rgba(0,212,255,.08); }
+  </style>
+</head>
+<body>
+  <h1>▸ RADAR INDOOR · SELECIONE A VERSÃO</h1>
+
+  <div class="cards">
+    <a class="card" href="indexv1.html">
+      <span class="version">VERSÃO 01</span>
+      <span class="title">Interface Original</span>
+      <p class="desc">Layout simples com mapa e marcador de posição.</p>
+      <span class="badge badge-old">LEGADO</span>
+    </a>
+
+    <a class="card" href="indexv2.html">
+      <span class="version">VERSÃO 02</span>
+      <span class="title">Dashboard Avançado</span>
+      <p class="desc">Tema dark, histórico de locais, barra de confiança e estatísticas em tempo real.</p>
+      <span class="badge badge-new">ATUAL</span>
+    </a>
+  </div>
+</body>
+</html>
