@@ -2,7 +2,7 @@
 
 Gera varreduras sintéticas a partir das assinaturas calibradas, com ruído
 gaussiano por rede, redes fracas que somem aleatoriamente e redes intrusas
-(vizinhos) que não estão na calibração, e compara o algoritmo legado com o atual.
+(vizinhos) que não estão na calibração, e compara o método simples com a distância RMS.
 Serve para escolher parâmetros e detectar regressões; os números de campo vêm do
 coletor.py + avaliar.py.
 
@@ -38,16 +38,16 @@ def main():
     with open(a.calibracao, encoding="utf-8") as f:
         mapa = engine.montar_mapa(json.load(f))
     rng = random.Random(a.seed)
-    acertos = {"legado": 0, "atual": 0, f"atual+janela{a.janela}": 0}
+    acertos = {"simples": 0, "rms": 0, f"rms+janela{a.janela}": 0}
     total = 0
     for ponto, p in mapa.items():
         suav = engine.Suavizador(a.janela)
         for _ in range(a.n):
             scan = amostra(p["assinatura"], a.sigma, rng)
             total += 1
-            acertos["legado"] += engine.classificar_legado(scan, mapa)["local"] == ponto
-            acertos["atual"] += engine.classificar(scan, mapa)["local"] == ponto
-            acertos[f"atual+janela{a.janela}"] += engine.classificar(suav.adicionar(scan), mapa)["local"] == ponto
+            acertos["simples"] += engine.classificar_simples(scan, mapa)["local"] == ponto
+            acertos["rms"] += engine.classificar(scan, mapa)["local"] == ponto
+            acertos[f"rms+janela{a.janela}"] += engine.classificar(suav.adicionar(scan), mapa)["local"] == ponto
     print(f"SIMULAÇÃO: {len(mapa)} pontos, {a.n} scans/ponto, ruído σ={a.sigma} dB, seed={a.seed}")
     for nome, ok in acertos.items():
         print(f"  {nome:16s} {100 * ok / total:5.1f}%")

@@ -4,9 +4,8 @@ Sistema que estima em qual ponto de uma residência um ESP32 está, comparando a
 intensidade de sinal (RSSI) das redes Wi-Fi ao redor com assinaturas calibradas
 de cada ponto. A posição aparece em tempo real sobre a planta baixa, numa página web.
 
-Projeto da disciplina EEL7802 (Projeto em Eletrônica II, UFSC). Esta é a segunda
-versão do repositório [Indoor-Positioning-System-IPS-](https://github.com/Kauan-Souto-Goede/Indoor-Positioning-System-IPS-),
-com algoritmo revisado, ferramentas de teste em campo e configuração fora do código.
+Projeto da disciplina EEL7802 (Projeto em Eletrônica II, UFSC). Inclui ferramentas de teste
+em campo e configuração fora do código.
 
 ## Como funciona
 
@@ -70,9 +69,9 @@ prefixo `ips/demo`. Para testar localmente, abra `docs/indexv2.html` num navegad
 
 ## Algoritmo (`backend/engine.py`)
 
-- **Distância RMS sobre o mesmo conjunto de redes.** A versão 1 somava os quadrados só sobre as redes de cada
-  ponto, então um ponto calibrado com poucas redes tinha menos termos na soma e ganhava mais vezes
-  (há um teste que reproduz esse erro). Agora todos os pontos são comparados sobre a união das redes calibradas.
+- **Distância RMS sobre o mesmo conjunto de redes.** Somar os quadrados só sobre as redes de cada
+  ponto (método simples) favorece pontos calibrados com poucas redes, que têm menos termos na soma
+  (há um teste que reproduz esse erro). Por isso todos os pontos são comparados sobre a união das redes calibradas.
 - **Redes ausentes valem −100 dBm.** Redes novas no scan que nenhum ponto conhece afetam todos os pontos igualmente
   e não mudam o ranking.
 - **Média das últimas N varreduras** (`janela` em `config.json`, padrão 3). Reduz ruído, mas atrasa a resposta:
@@ -90,7 +89,7 @@ python coletor.py --ponto "quarto" --n 20
 python avaliar.py "dados_campo/*.jsonl" --saida relatorio.md
 ```
 
-`avaliar.py` compara a versão antiga e a atual sobre os mesmos dados e mostra acurácia por ponto, por cômodo
+`avaliar.py` compara o método simples e a distância RMS sobre os mesmos dados e mostra acurácia por ponto, por cômodo
 (adicione `"comodo": "..."` em cada ponto de `coordenadas.json`), pontos mais confundidos e erro de posição
 (informe `--largura-m` e `--altura-m` para sair em metros). `python simular.py` gera uma **simulação** a partir
 da calibração; ela serve para ajustar parâmetros e não substitui a medição em campo.

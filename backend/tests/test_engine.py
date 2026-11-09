@@ -28,14 +28,14 @@ def test_classifica_scan_ruidoso():
 
 
 def test_ponto_com_poucas_redes_nao_ganha_por_ter_menos_termos():
-    # Cenário em que o algoritmo legado erra: "curto" tem 1 rede, "longo" tem 4.
+    # Cenário em que o método simples erra: "curto" tem 1 rede, "longo" tem 4.
     calib = {"assinaturas": {
         "curto": {"m1": -52},
         "longo": {"m1": -50, "m2": -63, "m3": -67, "m4": -62},
     }}
     m = engine.montar_mapa(calib)
     scan = {"m1": -50, "m2": -60, "m3": -70, "m4": -65}
-    assert engine.classificar_legado(scan, m)["local"] == "curto"   # erro conhecido
+    assert engine.classificar_simples(scan, m)["local"] == "curto"   # erro conhecido
     assert engine.classificar(scan, m)["local"] == "longo"          # corrigido
 
 
