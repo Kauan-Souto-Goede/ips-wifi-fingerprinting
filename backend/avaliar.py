@@ -5,9 +5,9 @@ Uso:
                       [--largura-m 10 --altura-m 12]
 
 Compara três variantes sobre os MESMOS dados:
-  legado         soma dos quadrados só sobre as redes de cada ponto
-  atual          distância RMS sobre o conjunto comum de redes
-  atual+janela   o mesmo, com média das últimas N varreduras
+  simples        soma dos quadrados só sobre as redes de cada ponto
+  rms            distância RMS sobre o conjunto comum de redes
+  rms+janela     o mesmo, com média das últimas N varreduras
 
 Para acurácia por cômodo, adicione "comodo": "<nome>" a cada ponto em
 coordenadas.json. Os erros de posição saem em % da planta (e em metros se
@@ -42,7 +42,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("arquivos", nargs="+")
     ap.add_argument("--calibracao", default="calibracao.json")
-    ap.add_argument("--coordenadas", default="coordenadas.json")
+    ap.add_argument("--coordenadas", default="../docs/planta/pontos.json")
     ap.add_argument("--janela", type=int, default=3)
     ap.add_argument("--saida", default=None, help="grava o relatório em Markdown")
     ap.add_argument("--largura-m", type=float, default=None)
@@ -53,12 +53,14 @@ def main():
         calibracao = json.load(f)
     try:
         with open(a.coordenadas, encoding="utf-8") as f:
-            coords = json.load(f)
+            coords = engine.normalizar_coordenadas(json.load(f))
     except FileNotFoundError:
         coords = {}
     mapa = engine.montar_mapa(calibracao, coords)
     comodo = {p: coords.get(p, {}).get("comodo") for p in mapa}
     tem_comodos = all(comodo.values()) and bool(comodo)
+    andar = {p: coords.get(p, {}).get("andar") for p in mapa}
+    tem_andares = all(v is not None for v in andar.values()) and len(set(andar.values())) > 1
 
     regs = carregar_registros(a.arquivos)
     ignorados = Counter(r["ponto"] for r in regs if r["ponto"] not in mapa)
@@ -66,7 +68,7 @@ def main():
     if not regs:
         raise SystemExit("Nenhum scan com rótulo presente na calibração.")
 
-    variantes = ["legado", "atual", f"atual+janela{a.janela}"]
+    variantes = ["simples", "rms", f"rms+janela{a.janela}"]
     prev = {v: [] for v in variantes}
     suav = engine.Suavizador(a.janela)
     ultimo = None
@@ -75,13 +77,13 @@ def main():
             suav.reset()
             ultimo = r["ponto"]
         scan = r["redes"]
-        prev["legado"].append(engine.classificar_legado(scan, mapa))
-        prev["atual"].append(engine.classificar(scan, mapa))
+        prev["simples"].append(engine.classificar_simples(scan, mapa))
+        prev["rms"].append(engine.classificar(scan, mapa))
         prev[variantes[2]].append(engine.classificar(suav.adicionar(scan), mapa))
 
     linhas = [f"# Avaliação em campo ({len(regs)} varreduras, {len({r['ponto'] for r in regs})} pontos)", ""]
     unid = "m" if (a.largura_m and a.altura_m) else "% da planta"
-    cab = "| Variante | Acurácia por ponto |" + (" Acurácia por cômodo |" if tem_comodos else "") + f" Erro médio de posição ({unid}) |"
+    cab = "| Variante | Acurácia por ponto |" + (" Acurácia por cômodo |" if tem_comodos else "") + (" Acerto de andar |" if tem_andares else "") + f" Erro médio de posição ({unid}{', andar certo' if tem_andares else ''}) |"
     linhas += [cab, "|" + "---|" * (cab.count("|") - 1)]
     for v in variantes:
         ok = sum(p["local"] == r["ponto"] for p, r in zip(prev[v], regs))
@@ -89,8 +91,14 @@ def main():
         if tem_comodos:
             okc = sum(comodo[p["local"]] == comodo[r["ponto"]] for p, r in zip(prev[v], regs))
             row += f" {100 * okc / len(regs):.1f}% |"
+        if tem_andares:
+            oka = sum(andar[p["local"]] == andar[r["ponto"]] for p, r in zip(prev[v], regs))
+            row += f" {100 * oka / len(regs):.1f}% |"
+        # Com vários andares, o erro de posição só faz sentido quando o andar está certo.
+        pares = [(p, r) for p, r in zip(prev[v], regs)
+                 if not tem_andares or andar[p["local"]] == andar[r["ponto"]]]
         err = sum(erro_pos(p, coords.get(r["ponto"], {"x": 0, "y": 0}), a.largura_m, a.altura_m)
-                  for p, r in zip(prev[v], regs)) / len(regs)
+                  for p, r in pares) / max(1, len(pares))
         linhas.append(row + f" {err:.1f} |")
 
     principal = variantes[2]

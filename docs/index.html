@@ -58,16 +58,20 @@
     <a class="card" href="indexv1.html">
       <span class="version">PÁGINA 01</span>
       <span class="title">Interface Simples</span>
-      <p class="desc">Layout simples com mapa e marcador de posição.</p>
+      <p class="desc">Layout simples: planta do andar onde o ESP32 está e marcador de posição.</p>
       <span class="badge badge-old">SIMPLES</span>
     </a>
 
     <a class="card" href="indexv2.html">
       <span class="version">PÁGINA 02</span>
       <span class="title">Dashboard Avançado</span>
-      <p class="desc">Tema dark, histórico de locais, barra de confiança e estatísticas em tempo real.</p>
+      <p class="desc">Tema escuro, abas dos 3 andares, histórico de locais, barra de confiança e estatísticas em tempo real.</p>
       <span class="badge badge-new">COMPLETO</span>
     </a>
   </div>
+  <script>
+    // Repassa o prefixo (?t=...) para as páginas do dashboard.
+    document.querySelectorAll("a.card").forEach(a => { a.href += location.search; });
+  </script>
 </body>
 </html>

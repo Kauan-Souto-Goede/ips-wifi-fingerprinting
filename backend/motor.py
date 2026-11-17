@@ -15,9 +15,9 @@ from mqtt_util import novo_cliente
 def carregar_coordenadas(caminho):
     if os.path.exists(caminho):
         with open(caminho, encoding="utf-8") as f:
-            return json.load(f)
+            return engine.normalizar_coordenadas(json.load(f))
     print(f"[AVISO] {caminho} não encontrado: a posição sairá com x=y=0 "
-          f"(use gerador_de_coordenadas.py).")
+          f"(confira arquivo_coordenadas no config.json).")
     return {}
 
 
@@ -44,7 +44,8 @@ def main():
 
     def publicar(client, scan):
         resultado = engine.classificar(suav.adicionar(scan), estado["mapa"])
-        print(f"[POSIÇÃO] {resultado['local']:28s} x={resultado['x']:>4} y={resultado['y']:>4} "
+        andar = f"andar {resultado['andar']}" if "andar" in resultado else ""
+        print(f"[POSIÇÃO] {resultado['local']:20s} {andar:8s} x={resultado['x']:>4} y={resultado['y']:>4} "
               f"dist={resultado['distancia_db']} dB  conf={resultado['confianca']}")
         client.publish(cfg["topico_saida"], json.dumps(resultado, ensure_ascii=False), retain=True)
 

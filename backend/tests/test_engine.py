@@ -76,3 +76,12 @@ def test_mapa_vazio_levanta_erro():
     import pytest
     with pytest.raises(ValueError):
         engine.classificar({"A": -50}, {})
+
+
+def test_andar_e_rotulo_saem_no_resultado():
+    calib = {"assinaturas": {"sala": {"A": -40}, "quarto": {"A": -80}}}
+    pontos = {"andares": [], "pontos": {
+        "sala": {"x": 10, "y": 20, "andar": 1, "rotulo": "Sala"},
+        "quarto": {"x": 50, "y": 50, "andar": 2, "rotulo": "Quarto"}}}
+    r = engine.classificar({"A": -42}, engine.montar_mapa(calib, pontos))
+    assert (r["local"], r["andar"], r["rotulo"]) == ("sala", 1, "Sala")

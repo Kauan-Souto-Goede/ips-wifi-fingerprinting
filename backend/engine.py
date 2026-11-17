@@ -4,7 +4,7 @@ Funções puras, para poder testar sem hardware:
   - montar_mapa: junta calibração (assinaturas) com coordenadas (x, y na planta).
   - classificar: escolhe o ponto calibrado mais parecido com um scan.
   - Suavizador: média das últimas N varreduras antes de classificar.
-  - classificar_legado: algoritmo da primeira versão, mantido só para comparação.
+  - classificar_simples: método de referência (sem normalizar), usado só para comparação.
 
 Convenção: RSSI em dBm; rede não detectada vale AUSENTE (-100 dBm).
 """
@@ -16,17 +16,29 @@ from collections import deque
 AUSENTE = -100
 
 
+EXTRAS = ("andar", "rotulo", "comodo")
+
+
+def normalizar_coordenadas(dados: dict | None) -> dict:
+    """Aceita {ponto: {...}} ou o formato de docs/planta/pontos.json
+    ({"andares": [...], "pontos": {ponto: {...}}}) e devolve {ponto: {...}}."""
+    dados = dados or {}
+    return dados.get("pontos", dados) if isinstance(dados.get("pontos"), dict) else dados
+
+
 def montar_mapa(calibracao: dict, coordenadas: dict | None = None) -> dict:
-    """Retorna {ponto: {"x", "y", "assinatura": {mac: rssi}}}.
+    """Retorna {ponto: {"x", "y", "assinatura": {mac: rssi}, ...}}.
 
     Pontos sem coordenadas ficam com x=y=0 (só o nome é útil). Coordenadas de
-    pontos que não foram calibrados são ignoradas.
+    pontos que não foram calibrados são ignoradas. Os campos andar, rotulo e
+    comodo, se existirem nas coordenadas, são repassados para o resultado.
     """
-    coordenadas = coordenadas or {}
+    coordenadas = normalizar_coordenadas(coordenadas)
     mapa = {}
     for ponto, redes in calibracao.get("assinaturas", {}).items():
         c = coordenadas.get(ponto, {})
         mapa[ponto] = {"x": c.get("x", 0), "y": c.get("y", 0), "assinatura": dict(redes)}
+        mapa[ponto].update({k: c[k] for k in EXTRAS if k in c})
     return mapa
 
 
@@ -39,8 +51,8 @@ def distancia_rms(scan: dict, assinatura: dict, macs: list[str]) -> float:
     """Distância RMS (dB) entre um scan e uma assinatura, sobre o MESMO conjunto
     de redes para todos os pontos.
 
-    Comparar todos os pontos sobre as mesmas redes evita o viés da versão
-    anterior, que somava só as redes de cada ponto: um ponto calibrado com poucas
+    Comparar todos os pontos sobre as mesmas redes evita o viés do método
+    simples, que soma só as redes de cada ponto: um ponto calibrado com poucas
     redes tinha menos termos na soma e ganhava com mais frequência.
     Redes do scan que nenhum ponto conhece afetam todos os pontos igualmente e
     não mudam o ranking, então são ignoradas.
@@ -72,7 +84,7 @@ def classificar(scan: dict, mapa: dict) -> dict:
         confianca = margem / (margem + d1) if (margem + d1) > 0 else 1.0
     else:
         confianca = 1.0
-    return {
+    resultado = {
         "local": melhor,
         "x": mapa[melhor]["x"],
         "y": mapa[melhor]["y"],
@@ -81,6 +93,8 @@ def classificar(scan: dict, mapa: dict) -> dict:
         "segundo": segundo,
         "confianca": round(confianca, 3),
     }
+    resultado.update({k: mapa[melhor][k] for k in EXTRAS if k in mapa[melhor]})
+    return resultado
 
 
 class Suavizador:
@@ -104,9 +118,9 @@ class Suavizador:
         return {m: sum(s.get(m, AUSENTE) for s in self._scans) / n for m in macs}
 
 
-def classificar_legado(scan: dict, mapa: dict) -> dict:
-    """Algoritmo da primeira versão: soma dos quadrados só sobre as redes de cada
-    ponto, sem normalizar. Mantido para comparar com o atual (simular.py/avaliar.py).
+def classificar_simples(scan: dict, mapa: dict) -> dict:
+    """Método simples: soma dos quadrados só sobre as redes de cada ponto, sem
+    normalizar. Serve de referência para comparar com a distância RMS (simular.py/avaliar.py).
     """
     melhor, menor = None, math.inf
     for nome, p in mapa.items():

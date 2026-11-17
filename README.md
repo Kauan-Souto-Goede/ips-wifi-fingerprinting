@@ -18,7 +18,7 @@ ESP32 ──(scans e calibração, MQTT)──▶ broker HiveMQ ◀──▶ mot
 2. **Operação:** o ESP32 varre o Wi-Fi a cada `SCAN_INTERVALO_MS` e publica `{MAC: RSSI}` por
    MQTT. No boot, ele também publica a calibração (mensagem *retained*).
 3. **Motor Python (`backend/motor.py`):** compara o scan com cada assinatura e publica o
-   ponto mais parecido, com coordenadas x/y da planta.
+   ponto mais parecido, com o andar e as coordenadas x/y na planta daquele andar.
 4. **Dashboard (`docs/`):** página estática que assina a posição por MQTT sobre WebSocket
    seguro e desenha o ponto na planta.
 
@@ -28,7 +28,8 @@ ESP32 ──(scans e calibração, MQTT)──▶ broker HiveMQ ◀──▶ mot
 | --- | --- |
 | `firmware/` | Projeto PlatformIO com dois ambientes: `producao` (scan + MQTT) e `calibracao` (Serial) |
 | `backend/` | `engine.py` (algoritmo), `motor.py`, `coletor.py`, `avaliar.py`, `simular.py`, `gerador_de_coordenadas.py`, testes |
-| `docs/` | Dashboard (`index.html`, `indexv1.html`, `indexv2.html`) e `Image/Planta.png`; pronto para o GitHub Pages |
+| `ferramentas/` | `gerar_plantas.py`: desenha as plantas dos 3 andares e gera `docs/planta/pontos.json` |
+| `docs/` | Dashboard (`index.html`, `indexv1.html`, `indexv2.html`) e `planta/` (plantas SVG e `pontos.json`); pronto para o GitHub Pages |
 
 ## Começando
 
@@ -57,9 +58,36 @@ calibração continua na flash e é enviada ao motor a cada boot.
 cd backend
 pip install -r requirements.txt
 cp config.example.json config.json                 # mesmo topic_prefix do firmware
-python gerador_de_coordenadas.py                   # marca cada ponto na planta -> coordenadas.json
 python motor.py
 ```
+
+### Plantas e pontos de calibração
+
+A casa tem três andares. As plantas ficam em `docs/planta/` e são geradas por
+`python ferramentas/gerar_plantas.py`, que também escreve `docs/planta/pontos.json` com o andar
+e as coordenadas de cada ponto. O motor e o dashboard leem esse mesmo arquivo. Na calibração,
+digite os nomes exatamente como na primeira coluna:
+
+| Nome na calibração | Local | Andar |
+|---|---|---|
+| `entrada` | Entrada | Térreo |
+| `sala de estar` | Sala de estar | Térreo |
+| `mesa de jantar` | Mesa de jantar | Térreo |
+| `oratorio` | Oratório | Térreo |
+| `banheiro terreo` | Banheiro (térreo) | Térreo |
+| `cozinha` | Cozinha | Térreo |
+| `churrasqueira` | Churrasqueira | Térreo |
+| `lavanderia` | Lavanderia | Térreo |
+| `banheiro cozinha` | Banheiro da cozinha | 2º andar |
+| `cozinha de cima` | Cozinha (2º andar) | 2º andar |
+| `corredor` | Corredor | 2º andar |
+| `ante sala` | Ante sala | 2º andar |
+| `banheiro da vo` | Banheiro da vó | 2º andar |
+| `quarto da vo` | Quarto da vó | 2º andar |
+| `quarto do vo` | Quarto do vô | 2º andar |
+| `banheiro do vo` | Banheiro do vô | 2º andar |
+| `salao de festas` | Salão de festas | 3º andar |
+| `sacada` | Sacada | 3º andar |
 
 ### 4. Dashboard
 
@@ -90,7 +118,7 @@ python avaliar.py "dados_campo/*.jsonl" --saida relatorio.md
 ```
 
 `avaliar.py` compara o método simples e a distância RMS sobre os mesmos dados e mostra acurácia por ponto, por cômodo
-(adicione `"comodo": "..."` em cada ponto de `coordenadas.json`), pontos mais confundidos e erro de posição
+(campo `comodo` de cada ponto em `docs/planta/pontos.json`), acerto de andar, pontos mais confundidos e erro de posição
 (informe `--largura-m` e `--altura-m` para sair em metros). `python simular.py` gera uma **simulação** a partir
 da calibração; ela serve para ajustar parâmetros e não substitui a medição em campo.
 

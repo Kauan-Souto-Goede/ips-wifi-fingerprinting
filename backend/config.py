@@ -8,7 +8,7 @@ PADRAO = {
     "topic_prefix": "ips/demo",
     "janela": 3,
     "arquivo_calibracao": "calibracao.json",
-    "arquivo_coordenadas": "coordenadas.json",
+    "arquivo_coordenadas": "../docs/planta/pontos.json",
 }
 
 

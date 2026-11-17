@@ -57,20 +57,7 @@
     .logo-text h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #fff; }
     .logo-text p  { font-family: var(--mono); font-size: .65rem; color: var(--text-dim); letter-spacing: .08em; }
 
-    /* Upload button inline no header */
     .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-
-    #upload-label {
-      display: flex; align-items: center; gap: 6px;
-      font-family: var(--mono); font-size: .68rem; letter-spacing: .06em;
-      padding: 6px 14px; border-radius: 999px;
-      border: 1px solid var(--border); background: var(--surface);
-      color: var(--text-dim); cursor: pointer;
-      transition: border-color .3s, color .3s;
-    }
-    #upload-label:hover { border-color: var(--accent); color: var(--accent); }
-    #upload-label svg { width: 13px; height: 13px; flex-shrink: 0; }
-    #img-upload { display: none; }
 
     #conn-pill {
       display: flex; align-items: center; gap: 8px;
@@ -110,18 +97,46 @@
       pointer-events: none; z-index: 1;
     }
 
+    /* Abas de andar */
+    #floor-tabs {
+      display: flex; gap: 6px; padding: 10px 12px;
+      border-bottom: 1px solid var(--border); position: relative; z-index: 6;
+      background: rgba(8,12,16,.55);
+    }
+    .floor-tab {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: var(--mono); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase;
+      padding: 8px 10px; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--border); background: transparent; color: var(--text-dim);
+      transition: border-color .3s, color .3s, background .3s;
+    }
+    .floor-tab:hover { color: var(--text); border-color: var(--text-dim); }
+    .floor-tab.active { color: #fff; border-color: var(--accent); background: rgba(0,212,255,.08); }
+    .floor-tab .here {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+      box-shadow: 0 0 8px var(--accent); display: none;
+    }
+    .floor-tab.has-device .here { display: inline-block; animation: blink 1.2s ease-in-out infinite; }
+
+    /* Pontos calibrados (referência discreta) */
+    .marker {
+      position: absolute; width: 9px; height: 9px; z-index: 4;
+      transform: translate(-50%, -50%); border-radius: 50%;
+      border: 1.5px solid rgba(0,212,255,.45); background: rgba(8,12,16,.6);
+    }
+
     /* ★ Wrapper mantém proporção real da imagem sem JS bloqueante */
     #map-inner {
       position: relative;
       width: 100%;
-      padding-top: 112%; /* sobrescrito por JS após load */
+      padding-top: 100%; /* sobrescrito por JS após load */
     }
 
     #floorplan {
       position: absolute; top: 0; left: 0;
       width: 100%; height: 100%;
       object-fit: fill;   /* preenche exatamente → coordenadas % sempre corretas */
-      opacity: .88;
+      opacity: .95;
       display: block;
       transition: opacity .4s;
     }
@@ -292,17 +307,6 @@
     </div>
 
     <div class="header-actions">
-      <!-- Upload da planta — sem recarregar a página -->
-      <label id="upload-label" for="img-upload" title="Trocar planta baixa">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="17 8 12 3 7 8"/>
-          <line x1="12" y1="3" x2="12" y2="15"/>
-        </svg>
-        Trocar Planta
-      </label>
-      <input type="file" id="img-upload" accept="image/*" />
-
       <div id="conn-pill">
         <span class="led"></span>
         <span id="conn-text">Conectando...</span>
@@ -316,8 +320,10 @@
     <!-- Mapa -->
     <div class="map-panel">
       <!-- ★ map-inner mantém aspect-ratio correto da imagem atual -->
+      <div id="floor-tabs"></div>
       <div id="map-inner">
-        <img id="floorplan" src="Image/Planta.png" alt="Planta Baixa" />
+        <img id="floorplan" src="planta/andar1-escuro.svg" alt="Planta baixa" />
+        <div id="markers"></div>
 
         <!-- Ondas de scan -->
         <div id="scan-ring">
@@ -331,7 +337,7 @@
           <div id="dot-label">—</div>
         </div>
 
-        <div class="map-badge">PLANTA · POSICIONAMENTO Wi-Fi</div>
+        <div class="map-badge" id="map-badge">PLANTA · POSICIONAMENTO Wi-Fi</div>
       </div>
     </div>
 
@@ -343,6 +349,10 @@
         <div id="location-name">—</div>
         <div id="location-sub">Aguardando sinal...</div>
         <div class="coords-row">
+          <div class="coord-box">
+            <div class="label">ANDAR</div>
+            <div class="value" id="floor-value">—</div>
+          </div>
           <div class="coord-box">
             <div class="label">COORD X</div>
             <div class="value" id="coord-x">—</div>
@@ -400,7 +410,16 @@
       retryMs:     4000,
     };
 
-    const state = { packets: 0, uptimeSec: 0, history: [], maxHistory: 8 };
+    const state = {
+      packets: 0, uptimeSec: 0, history: [], maxHistory: 8,
+      andares: [{ id: 1, nome: "Térreo", planta: "planta/andar1" },
+                { id: 2, nome: "2º andar", planta: "planta/andar2" },
+                { id: 3, nome: "3º andar", planta: "planta/andar3" }],
+      pontos: {},
+      vendo: 1,          // andar exibido
+      posicao: null,     // última posição recebida
+      cliqueManual: 0,   // hora do último clique numa aba
+    };
 
     const $ = id => document.getElementById(id);
     const el = {
@@ -412,7 +431,53 @@
       confFill:  $("conf-fill"), confValue: $("conf-value"),
       packets:   $("stat-packets"), uptime: $("stat-uptime"),
       history:   $("history-list"), toast: $("toast"),
+      tabs:      $("floor-tabs"), markers: $("markers"), floor: $("floor-value"),
+      badge:     $("map-badge"),
     };
+
+    const nomeAndar = id => (state.andares.find(a => a.id === id) || {}).nome || ("Andar " + id);
+    const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    // ── Andares ───────────────────────────────────────────────────────────
+    function desenharAbas() {
+      el.tabs.innerHTML = state.andares.map(a =>
+        `<button class="floor-tab" data-andar="${a.id}"><span class="here"></span>${esc(a.nome)}</button>`
+      ).join("");
+      el.tabs.querySelectorAll(".floor-tab").forEach(b => b.addEventListener("click", () => {
+        state.cliqueManual = Date.now();
+        mostrarAndar(Number(b.dataset.andar));
+      }));
+    }
+
+    function mostrarAndar(id) {
+      const andar = state.andares.find(a => a.id === id) || state.andares[0];
+      state.vendo = andar.id;
+      const src = andar.planta + "-escuro.svg";
+      if (!el.floorplan.src.endsWith(src)) el.floorplan.src = src;
+      el.tabs.querySelectorAll(".floor-tab").forEach(b => {
+        b.classList.toggle("active", Number(b.dataset.andar) === andar.id);
+        b.classList.toggle("has-device", !!state.posicao && Number(b.dataset.andar) === state.posicao.andar);
+      });
+      el.markers.innerHTML = Object.entries(state.pontos)
+        .filter(([, p]) => p.andar === andar.id)
+        .map(([nome, p]) => `<div class="marker" title="${esc(p.rotulo || nome)}" style="left:${p.x}%;top:${p.y}%"></div>`)
+        .join("");
+      const aqui = state.posicao && state.posicao.andar === andar.id;
+      el.dot.classList.toggle("visible", !!aqui);
+      el.badge.textContent = state.posicao && !aqui
+        ? `ESP32 NO ${nomeAndar(state.posicao.andar).toUpperCase()}`
+        : "PLANTA · " + andar.nome.toUpperCase();
+    }
+
+    // Andares e pontos vêm do mesmo arquivo que o motor usa (docs/planta/pontos.json).
+    fetch("planta/pontos.json")
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d.andares) && d.andares.length) state.andares = d.andares;
+        state.pontos = d.pontos || {};
+      })
+      .catch(() => console.warn("pontos.json indisponível; usando os andares padrão"))
+      .finally(() => { desenharAbas(); mostrarAndar(state.posicao ? state.posicao.andar : state.vendo); });
 
     // ── Ajusta proporção do mapa ao aspect-ratio real da imagem ──────────
     function ajustarAspecto() {
@@ -421,24 +486,6 @@
     }
     el.floorplan.addEventListener("load", ajustarAspecto);
     if (el.floorplan.complete) ajustarAspecto();
-
-    // ── Upload de nova planta sem recarregar ──────────────────────────────
-    $("img-upload").addEventListener("change", function () {
-      const file = this.files[0];
-      if (!file) return;
-      // Libera URL anterior se houver
-      if (el.floorplan._blobUrl) URL.revokeObjectURL(el.floorplan._blobUrl);
-      const url = URL.createObjectURL(file);
-      el.floorplan._blobUrl = url;
-      el.floorplan.style.opacity = "0";
-      el.floorplan.src = url;
-      el.floorplan.addEventListener("load", () => {
-        el.floorplan.style.opacity = ".88";
-        showToast("Planta carregada: " + file.name);
-      }, { once: true });
-      // Reseta posição do dot pois as coordenadas do novo mapa podem diferir
-      el.dot.classList.remove("visible");
-    });
 
     // ── Toast ─────────────────────────────────────────────────────────────
     let toastTimer;
@@ -462,15 +509,22 @@
 
     // ── Atualiza UI ───────────────────────────────────────────────────────
     function atualizarPosicao(d) {
-      const { local, x, y, confianca, distancia_db } = d;
+      const { x, y, confianca, distancia_db } = d;
+      const local = d.rotulo || d.local;
+      const andar = Number(d.andar) || state.vendo;
+      const mudouAndar = !state.posicao || state.posicao.andar !== andar;
+      state.posicao = { andar, x, y };
       state.packets++;
 
       el.dot.style.left = x + "%";
       el.dot.style.top  = y + "%";
-      el.dot.classList.add("visible");
       el.dotLabel.textContent = local;
+      // Segue o ESP32 entre andares, exceto logo após um clique numa aba.
+      const seguir = mudouAndar || Date.now() - state.cliqueManual > 15000;
+      mostrarAndar(seguir ? andar : state.vendo);
 
       el.locName.textContent = local;
+      el.floor.textContent   = nomeAndar(andar).replace(" andar", "");
       el.coordX.textContent  = x;
       el.coordY.textContent  = y;
       el.packets.textContent = state.packets;
@@ -493,10 +547,10 @@
         const agora = new Date();
         const ts = [agora.getHours(), agora.getMinutes(), agora.getSeconds()]
           .map(n => String(n).padStart(2,"0")).join(":");
-        state.history.unshift({ local, ts });
+        state.history.unshift({ local, texto: `${local} · ${nomeAndar(andar)}`, ts });
         if (state.history.length > state.maxHistory) state.history.pop();
         el.history.innerHTML = state.history.map(item =>
-          `<li><span>${item.local}</span><span class="ts">${item.ts}</span></li>`
+          `<li><span>${esc(item.texto)}</span><span class="ts">${item.ts}</span></li>`
         ).join("");
       }
     }

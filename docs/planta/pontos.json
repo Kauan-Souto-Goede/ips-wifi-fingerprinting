@@ -1,0 +1,147 @@
+{
+  "andares": [
+    {
+      "id": 1,
+      "nome": "Térreo",
+      "planta": "planta/andar1"
+    },
+    {
+      "id": 2,
+      "nome": "2º andar",
+      "planta": "planta/andar2"
+    },
+    {
+      "id": 3,
+      "nome": "3º andar",
+      "planta": "planta/andar3"
+    }
+  ],
+  "pontos": {
+    "entrada": {
+      "x": 44.4,
+      "y": 38.9,
+      "andar": 1,
+      "rotulo": "Entrada",
+      "comodo": "sala terreo"
+    },
+    "sala de estar": {
+      "x": 75.3,
+      "y": 29.1,
+      "andar": 1,
+      "rotulo": "Sala de estar",
+      "comodo": "sala terreo"
+    },
+    "mesa de jantar": {
+      "x": 47.0,
+      "y": 61.9,
+      "andar": 1,
+      "rotulo": "Mesa de jantar",
+      "comodo": "sala terreo"
+    },
+    "oratorio": {
+      "x": 22.4,
+      "y": 61.5,
+      "andar": 1,
+      "rotulo": "Oratório",
+      "comodo": "sala terreo"
+    },
+    "banheiro terreo": {
+      "x": 20.8,
+      "y": 40.1,
+      "andar": 1,
+      "rotulo": "Banheiro (térreo)",
+      "comodo": "banheiro terreo"
+    },
+    "cozinha": {
+      "x": 57.2,
+      "y": 86.5,
+      "andar": 1,
+      "rotulo": "Cozinha",
+      "comodo": "cozinha terreo"
+    },
+    "churrasqueira": {
+      "x": 17.1,
+      "y": 81.2,
+      "andar": 1,
+      "rotulo": "Churrasqueira",
+      "comodo": "cozinha terreo"
+    },
+    "lavanderia": {
+      "x": 83.2,
+      "y": 85.1,
+      "andar": 1,
+      "rotulo": "Lavanderia",
+      "comodo": "lavanderia"
+    },
+    "banheiro cozinha": {
+      "x": 33.2,
+      "y": 33.9,
+      "andar": 2,
+      "rotulo": "Banheiro da cozinha",
+      "comodo": "banheiro cozinha"
+    },
+    "cozinha de cima": {
+      "x": 33.2,
+      "y": 51.7,
+      "andar": 2,
+      "rotulo": "Cozinha (2º andar)",
+      "comodo": "cozinha 2 andar"
+    },
+    "corredor": {
+      "x": 48.3,
+      "y": 53.1,
+      "andar": 2,
+      "rotulo": "Corredor",
+      "comodo": "circulacao 2 andar"
+    },
+    "ante sala": {
+      "x": 34.4,
+      "y": 69.1,
+      "andar": 2,
+      "rotulo": "Ante sala",
+      "comodo": "circulacao 2 andar"
+    },
+    "banheiro da vo": {
+      "x": 49.6,
+      "y": 25.3,
+      "andar": 2,
+      "rotulo": "Banheiro da vó",
+      "comodo": "banheiro da vo"
+    },
+    "quarto da vo": {
+      "x": 66.4,
+      "y": 25.3,
+      "andar": 2,
+      "rotulo": "Quarto da vó",
+      "comodo": "quarto da vo"
+    },
+    "quarto do vo": {
+      "x": 37.9,
+      "y": 85.0,
+      "andar": 2,
+      "rotulo": "Quarto do vô",
+      "comodo": "quarto do vo"
+    },
+    "banheiro do vo": {
+      "x": 68.6,
+      "y": 85.0,
+      "andar": 2,
+      "rotulo": "Banheiro do vô",
+      "comodo": "banheiro do vo"
+    },
+    "salao de festas": {
+      "x": 38.9,
+      "y": 61.8,
+      "andar": 3,
+      "rotulo": "Salão de festas",
+      "comodo": "salao de festas"
+    },
+    "sacada": {
+      "x": 66.8,
+      "y": 24.3,
+      "andar": 3,
+      "rotulo": "Sacada",
+      "comodo": "sacada"
+    }
+  }
+}
